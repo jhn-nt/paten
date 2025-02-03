@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="paten",
-    version="0.1",
+    version="0.2",
     packages=["paten"],
     include_package_data=True,
     install_requires=[
@@ -11,6 +11,6 @@ setup(
         "econml",
         "tableone",
         "pandas-gbq",
-        "gspread"
+        "gspread",
     ]
 )

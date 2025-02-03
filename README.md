@@ -6,8 +6,12 @@ G. Angelotti, L. Azzimonti, I. Bose, A. Colombo, T. Crupi, F. Faraci, M. Lubian,
 `pip install "git+https://github.com/jhn-nt/paten.git"`
 
 ```python
-from paten.etl import dataset, intervention_proxy__uniform
+from paten.etl import dataset, intervention_proxy__uniform,intervention_proxy__capped_cumulative
 
-# estimating proxies as pronation hours/ total imv
+# estimating proxies of pronation as total pronations hours/ total imv
 df=dataset(intervention_proxy__uniform)
+
+
+# estimating proxies of pronation as cumulative pronation hours until 24 hours.
+df=dataset(intervention_proxy__capped_cumulative)
 ```
