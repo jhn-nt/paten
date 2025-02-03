@@ -61,9 +61,30 @@ def load_confounders_legacy():
     confounders_df=read_gbq(confounders_q)
     average_confounders_df=pd.pivot_table(confounders_df,
                index=["person_id","visit_occurrence_id","intubation"],
-               columns=["measurement_source_value"],
+               columns=["concept_name"],
                values=["avg_value"])
     return average_confounders_df
+
+def confounders():
+    gc = gspread.oauth()
+    worksheet=gc.open("Variables")
+    data=worksheet.get_worksheet(0).get_all_values()
+    headers=data.pop(0)
+    df=pd.DataFrame(data,columns=headers)
+    concepts=df[df["During IMV (X)"]=='x'].concept_id.to_list()
+    concepts_str=",".join(concepts)
+    return concepts_str
+
+def load_confounders():
+    cohort_q=read_query("cohort")
+    concepts_str=confounders()
+    confounders_q=read_procedure("confounders").format(cohort_q,concepts_str)
+    confounders_df=read_gbq(confounders_q)
+    average_confounders_df=pd.pivot_table(confounders_df,
+               index=["person_id","visit_occurrence_id","intubation"],
+               columns=["concept_name"],
+               values=["value_as_number"])
+    return average_confounders_df.droplevel(0,1)
 
 def cohort_table_from_params(params_df:pd.DataFrame)->pd.DataFrame:
     """
@@ -177,4 +198,39 @@ def legacy_dataset(proxy_f):
     temp=temp.drop("concept_name",axis=1)
     dataset=temp.merge(ards_df,on=["person_id","visit_occurrence_id"],how="inner")
     dataset=dataset[dataset['Dynamic lung compliance']<40]
+    dataset=dataset.sort_values(by=["person_id","intubation"]).groupby("person_id").first().reset_index()
     return dataset
+
+def dataset(proxy_f):
+    demographic_df=load_demographic()
+    ventilation_df=load_cohort()
+    vap_df=load_vap()
+    params_df=load_ventilatory_params()
+    pronation_observation_df=load_pronation_observation()
+    pronation_initiaiton_df=load_pronation_initiation()
+    average_covariates_df=load_confounders()
+    outcome_df=load_outcomes()
+
+    df=cohort_table_from_params(params_df)
+    ards_df=df[df.ards].reset_index().groupby(["person_id","visit_occurrence_id"]).severe_ards.max().reset_index()
+
+    pronation_df=proxy_f(pronation_initiaiton_df,pronation_observation_df)
+    temp=average_covariates_df.merge(pronation_df,on=["person_id","visit_occurrence_id","intubation"],how="left")
+    outcome_df["death"]=True
+
+    temp=temp.merge(outcome_df.drop_duplicates(),on=["person_id","visit_occurrence_id"],how="left")
+    temp["death"]=temp["death"].fillna(False)
+
+    temp=temp.merge(demographic_df,on=["person_id","visit_occurrence_id"])
+    temp=temp.merge(ventilation_df,on=["person_id","visit_occurrence_id","intubation"])
+    vap_df["pneumonia"]=True
+    temp=temp.merge(vap_df,on=["visit_occurrence_id","intubation"],how="left")
+    temp["pneumonia"]=temp["pneumonia"].fillna(False)
+    temp=temp.drop(["condition_era_start_date","condition_era_end_date"],axis=1)
+
+    temp=temp.drop("concept_name",axis=1)
+    dataset=temp.merge(ards_df,on=["person_id","visit_occurrence_id"],how="inner")
+    dataset=dataset[dataset['Dynamic lung compliance']<40]
+    dataset=dataset.sort_values(by=["person_id","intubation"]).groupby("person_id").first().reset_index()
+    return dataset
+
