@@ -15,6 +15,7 @@ aggregated_measurements AS (
     m.person_id,
     m.visit_occurrence_id,
     flm.intubation,
+    m.measurement_concept_id,
     m.measurement_source_value,
     -- Adjusted logic for time windows
     CASE
@@ -32,11 +33,12 @@ aggregated_measurements AS (
 ),
 final_aggregates AS (
   SELECT
-    person_id,
-    visit_occurrence_id,
-    intubation,
-    measurement_source_value,
-    time_window,
+    measurement.person_id,
+    measurement.visit_occurrence_id,
+    measurement.intubation,
+    concept.concept_name,
+    measurement.measurement_source_value,
+    measurement.time_window,
     -- Aggregate temperature values (hourly)
     MAX(CASE WHEN measurement_source_value IN ({0:})
     THEN value_as_number END) AS max_value,
@@ -44,7 +46,8 @@ final_aggregates AS (
     THEN value_as_number END) AS min_value,
     AVG(CASE WHEN measurement_source_value IN ({0:})
     THEN value_as_number END) AS avg_value
-  FROM aggregated_measurements
-  GROUP BY person_id, visit_occurrence_id,intubation, measurement_source_value, time_window
+  FROM aggregated_measurements measurement
+  INNER JOIN `amsterdamumcdb.version1_5_0.concept` concept ON concept.concept_id=measurement.measurement_concept_id
+  GROUP BY measurement.person_id, measurement.visit_occurrence_id,measurement.intubation, measurement.measurement_concept_id, concept.concept_name,measurement.measurement_source_value, measurement.time_window
 )
 SELECT * FROM final_aggregates

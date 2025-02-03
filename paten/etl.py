@@ -106,14 +106,13 @@ def intervention_proxy__uniform(pronation_initiaiton_df,pronation_observation_df
   tf=pd.concat([obse_df,init_df],axis=0).copy()
 
   tf=tf[tf.value.isin(["init","end"])]
-  tf["next"]=tf.groupby(["visit_occurrence_id","intubation"]).value.shift(-1)
-
   tf["next_datetime"]=tf.groupby(["person_id","visit_occurrence_id","intubation"]).datetime.shift(-1)
   tf["ref_datetime"]=tf[["next_datetime","extubation"]].min(axis=1)
 
 
   tf["delta"]=(tf.ref_datetime-tf.datetime)/np.timedelta64(1,"h")
   tf["delta"]=np.where(tf.delta>0,tf.delta,np.nan)
+  tf["imv_days"]=(tf.extubation-tf.intubation)/(24*np.timedelta64(1,"h"))
 
 
   approx_intervention_df=tf[tf.value=='init'].copy()
@@ -145,6 +144,9 @@ def intervention_proxy__capped_cumulative(pronation_initiaiton_df,pronation_obse
 
   return approx_intervention_df[["person_id","visit_occurrence_id","intubation","average_daily_pronation__hours"]]
 
+def intervention_proxy__duty_cycle(pronation_initiaiton_df,pronation_observation_df)->pd.DataFrame:
+    raise NotImplementedError
+
 def legacy_dataset(proxy_f):
     demographic_df=load_demographic()
     ventilation_df=load_cohort()
@@ -160,7 +162,6 @@ def legacy_dataset(proxy_f):
 
     pronation_df=proxy_f(pronation_initiaiton_df,pronation_observation_df)
     temp=average_covariates_df.droplevel(0,1).merge(pronation_df,on=["person_id","visit_occurrence_id","intubation"],how="left")
-    temp["pronation"]=temp["pronation"].fillna(False)
     outcome_df["death"]=True
 
     temp=temp.merge(outcome_df.drop_duplicates(),on=["person_id","visit_occurrence_id"],how="left")
@@ -175,4 +176,5 @@ def legacy_dataset(proxy_f):
 
     temp=temp.drop("concept_name",axis=1)
     dataset=temp.merge(ards_df,on=["person_id","visit_occurrence_id"],how="inner")
+    dataset=dataset[dataset['Dynamic lung compliance']<40]
     return dataset

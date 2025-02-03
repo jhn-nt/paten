@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import json
 
+
 TEMP=Path("/.cxr")
 PROCEDURES=Path(__file__).parent / "procedures"
 CREDENTIALS=".config/gcloud/application_default_credentials.json"
@@ -37,3 +38,9 @@ def read_query(name):
     with open(PROCEDURES / f"{name}.sql","r") as file:
         query=file.read()
     return query
+
+def filter_pronation(df:pd.DataFrame,threshold__hours:int)->pd.DataFrame:
+  filtered_df=df[(df.average_daily_pronation__hours > threshold__hours)|(df.average_daily_pronation__hours.isna())].copy()
+  filtered_df["Pronation"]=filtered_df.average_daily_pronation__hours.notna()
+  return filtered_df
+
