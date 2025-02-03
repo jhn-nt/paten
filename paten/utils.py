@@ -10,6 +10,7 @@ TEMP=Path("/.cxr")
 PROCEDURES=Path(__file__).parent / "procedures"
 CREDENTIALS=".config/gcloud/application_default_credentials.json"
 
+
 def get_credentials():
     with open(Path.home() / CREDENTIALS,"r") as file:
         data=json.load(file)

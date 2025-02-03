@@ -43,7 +43,16 @@ def load_vap():
     return read_gbq(outcomes_q)
 
 def confounders__legacy():
-    gc = gspread.oauth()
+    try:
+        gc = gspread.oauth()
+    except:
+        # when in colab
+        from google.colab import auth
+        from google.auth import default
+        auth.authenticate_user()
+        credentials,_=default()
+        gc=gspread.authorize(credentials)
+        
     worksheet=gc.open("Variables Datathon")
     data=worksheet.get_worksheet(0).get_all_values()
     headers=data.pop(0)
@@ -66,18 +75,26 @@ def load_confounders_legacy():
     return average_confounders_df
 
 def confounders():
-    gc = gspread.oauth()
+    try:
+        gc = gspread.oauth()
+    except:
+        # when in colab
+        from google.colab import auth
+        from google.auth import default
+        auth.authenticate_user()
+        credentials,_=default()
+        gc=gspread.authorize(credentials)
+
     worksheet=gc.open("Variables")
     data=worksheet.get_worksheet(0).get_all_values()
     headers=data.pop(0)
     df=pd.DataFrame(data,columns=headers)
-    concepts=df[df["During IMV (X)"]=='x'].concept_id.to_list()
-    concepts_str=",".join(concepts)
-    return concepts_str
+    concepts=df[df["During IMV (X)"]=='x'][["concept_id","concept_name"]]
+    return concepts
 
 def load_confounders():
     cohort_q=read_query("cohort")
-    concepts_str=confounders()
+    concepts_str=",".join(confounders().concept_id.to_list())
     confounders_q=read_procedure("confounders").format(cohort_q,concepts_str)
     confounders_df=read_gbq(confounders_q)
     average_confounders_df=pd.pivot_table(confounders_df,
@@ -204,6 +221,8 @@ def legacy_dataset(proxy_f):
 def dataset(proxy_f):
     demographic_df=load_demographic()
     ventilation_df=load_cohort()
+    ventilation_df=ventilation_df.reset_index().rename(columns={"index":"ventilation_id"})
+
     vap_df=load_vap()
     params_df=load_ventilatory_params()
     pronation_observation_df=load_pronation_observation()
@@ -211,26 +230,30 @@ def dataset(proxy_f):
     average_covariates_df=load_confounders()
     outcome_df=load_outcomes()
 
+
     df=cohort_table_from_params(params_df)
     ards_df=df[df.ards].reset_index().groupby(["person_id","visit_occurrence_id"]).severe_ards.max().reset_index()
 
     pronation_df=proxy_f(pronation_initiaiton_df,pronation_observation_df)
     temp=average_covariates_df.merge(pronation_df,on=["person_id","visit_occurrence_id","intubation"],how="left")
-    outcome_df["death"]=True
+    outcome_df["Death"]=True
 
     temp=temp.merge(outcome_df.drop_duplicates(),on=["person_id","visit_occurrence_id"],how="left")
-    temp["death"]=temp["death"].fillna(False)
+    temp["Death"]=temp["Death"].fillna(False)
 
     temp=temp.merge(demographic_df,on=["person_id","visit_occurrence_id"])
+    temp.gender=temp.gender.replace({"Vrouw":"Female","Man":"Male"})
+    temp=temp[temp.gender.notna()]
     temp=temp.merge(ventilation_df,on=["person_id","visit_occurrence_id","intubation"])
-    vap_df["pneumonia"]=True
+    vap_df["Pneumonia"]=True
     temp=temp.merge(vap_df,on=["visit_occurrence_id","intubation"],how="left")
-    temp["pneumonia"]=temp["pneumonia"].fillna(False)
+    temp["Pneumonia"]=temp["Pneumonia"].fillna(False)
     temp=temp.drop(["condition_era_start_date","condition_era_end_date"],axis=1)
 
     temp=temp.drop("concept_name",axis=1)
     dataset=temp.merge(ards_df,on=["person_id","visit_occurrence_id"],how="inner")
     dataset=dataset[dataset['Dynamic lung compliance']<40]
     dataset=dataset.sort_values(by=["person_id","intubation"]).groupby("person_id").first().reset_index()
+    dataset=dataset.rename(columns={"gender":"Gender","severe_ards":"Severe ARDS","unit":"Unit","los":"LOS"})
     return dataset
 
