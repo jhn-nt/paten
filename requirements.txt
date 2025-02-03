@@ -1,0 +1,7 @@
+pandas
+numpy
+econml
+tableone
+pandas-gbq
+jupyter
+gspread

@@ -1,0 +1,5 @@
+*.ipynb
+*.json
+gcloud.sh
+data/
+paten/__pycache__/
