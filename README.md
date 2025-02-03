@@ -6,7 +6,7 @@ G. Angelotti, L. Azzimonti, I. Bose, A. Colombo, T. Crupi, F. Faraci, M. Lubian,
 `pip install "git+https://github.com/jhn-nt/paten.git"`
 
 ```python
-from paten.etl import dataset, intervention_proxy__uniform,
+from paten.etl import dataset, intervention_proxy__uniform
 
 # estimating proxies as pronation hours/ total imv
 df=dataset(intervention_proxy__uniform)
