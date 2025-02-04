@@ -3,6 +3,7 @@ SELECT DISTINCT
   visit.visit_occurrence_id,
   visit.visit_source_value AS unit,
   person.year_of_birth,
+  EXTRACT(YEAR FROM visit.visit_start_datetime) - person.year_of_birth AS age,
   person.gender_source_value AS gender,
   DATETIME_DIFF(visit.visit_end_datetime, visit.visit_start_datetime, HOUR)/24 AS los,
   weight.value_as_number AS weight,

@@ -1,6 +1,7 @@
-from .utils import read_gbq, read_query, read_procedure
+from .utils import read_gbq, read_query, read_procedure, TEMP
 import pandas as pd
 import numpy as np
+import pickle
 import gspread
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -93,6 +94,9 @@ def confounders():
     headers=data.pop(0)
     df=pd.DataFrame(data,columns=headers)
     concepts=df[df["During IMV (X)"]=='x'][["concept_id","concept_name"]]
+
+    with open(TEMP / "clinical_variables.pickle","wb") as file:
+        pickle.dump(concepts["concept_name"].to_list(),file)
     return concepts
 
 def load_confounders():
@@ -323,6 +327,8 @@ def intervention_proxy__duty_cycle(pronation_initiation_df: pd.DataFrame,
             res_df.loc[pid, 'pronation_sessions'] = len(session_durations)
             res_df.loc[pid, 'average_pronation_hours'] = np.mean(session_durations)
     
+    res_df=res_df.rename(columns={'average_pronation_hours':"average_daily_pronation__hours"})
+    res_df.average_daily_pronation__hours=np.where(res_df.average_daily_pronation__hours>0,res_df.average_daily_pronation__hours,np.nan)
     return res_df.sort_values('intubation').reset_index()
 
 def legacy_dataset(proxy_f):
@@ -394,7 +400,19 @@ def dataset(proxy_f,granularity=["person_id"]):
     temp=temp.drop("concept_name",axis=1)
     dataset=temp.merge(ards_df,on=["person_id","visit_occurrence_id"],how="inner")
     dataset=dataset[dataset['Dynamic lung compliance']<40]
+    dataset=dataset[dataset.gender.isin(["Male","Female"])] # one patient does not have gender
     dataset=dataset.sort_values(by=["person_id","intubation"]).groupby(granularity).first().reset_index()
-    dataset=dataset.rename(columns={"gender":"Gender","severe_ards":"Severe ARDS","unit":"Unit","los":"LOS"})
+    dataset=dataset.rename(columns={
+        "gender":"Gender",
+        "severe_ards":"Severe ARDS",
+        "weight":"Weight",
+        "height":"Height",
+        "bmi":"BMI",
+        "unit":"Unit",
+        "los":"LOS",
+        "age":"Age",
+        "apache":"APACHE"})
+    with open(TEMP / "features.pickle","wb") as file:
+        pickle.dump(dataset.columns.to_list(),file)
     return dataset
 

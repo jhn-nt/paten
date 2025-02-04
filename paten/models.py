@@ -9,7 +9,11 @@ from sklearn.decomposition import PCA
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import RepeatedStratifiedKFold
+from lightgbm import LGBMClassifier
+from tqdm import tqdm
 from .utils import filter_pronation
+
+
 
 
 def formatted_cross_validate(*args,**kwargs)->pd.DataFrame:
@@ -55,7 +59,7 @@ def make_logistic_regression(confounders,categorical,seed=0,decompose=True,n_com
     ])
 
   cat_processor=Pipeline([
-      ("encoder",OneHotEncoder(drop="if_binary")),
+      ("encoder",OneHotEncoder(drop="if_binary",handle_unknown="ignore")),
       ("imputer",SimpleImputer(strategy="most_frequent")),
   ])
 
@@ -72,20 +76,15 @@ def make_logistic_regression(confounders,categorical,seed=0,decompose=True,n_com
 
   return model
 
-def propensity_score(df,on,seed=0,threshold__hours=16,include_treatment=False,all_features=False):
+def make_lgbm(confounders,categorical,seed=0,**kwargs)->LGBMClassifier:
+  model=LGBMClassifier(random_state=seed,verbose=-1,num_leaves=21,**kwargs)
+  return model
+
+def propensity_score(df,outcome,treatment,confounders,categorical,on_treatment=False,seed=0,threshold__hours=16,include_treatment=False,n_repeats=10,n_splits=5):
   from sklearn.metrics import roc_auc_score, average_precision_score
   warnings.filterwarnings('ignore')
 
-  pre_df=df[(df['Dynamic lung compliance']<40)&(df.Severe_ards==True)].copy()
-  filtered_df=filter_pronation(pre_df,threshold__hours=threshold__hours)
-
-  index=["person_id","visit_occurrence_id","ventilation_id"]
-  to_drop=["intubation","extubation","year_of_birth", "Severe_ards","average_daily_pronation__hours","unit","los","q"]
-  categorical=["Gender"]
-  outcome=["Death"]
-  treatment=["Pronation"]
-  confounders=df.drop([*outcome,*treatment,*index,*to_drop],axis=1).columns.to_list()
-  confounders=[conf for conf in confounders if "_2" not in conf]
+  filtered_df=filter_pronation(df,threshold__hours=threshold__hours)
 
 
   if include_treatment:
@@ -94,16 +93,22 @@ def propensity_score(df,on,seed=0,threshold__hours=16,include_treatment=False,al
 
   continuous=list(set(confounders).difference(categorical))
 
-  model=make_logistic_regression(confounders,categorical,decompose=False)
-  cv=RepeatedStratifiedKFold(n_repeats=10,n_splits=5,random_state=seed)
+  model=make_logistic_regression(confounders,categorical,decompose=False,seed=seed)
+  cv=RepeatedStratifiedKFold(n_repeats=n_repeats,n_splits=n_splits,random_state=seed)
 
+  if on_treatment:
+    on=treatment
+  else:
+    on=outcome
 
   X,y=filtered_df[confounders],filtered_df[on]
   X[continuous]=X[continuous].fillna(1e-6)
   odds=[]
   auroc=[]
   auprc=[]
-  for train,test in cv.split(X,y):
+
+  pbar=tqdm(cv.split(X,y))
+  for train,test in pbar:
 
     X_train,X_test=X.iloc[train,:],X.iloc[test,:]
     y_train, y_test=y.iloc[train],y.iloc[test]
@@ -119,35 +124,23 @@ def propensity_score(df,on,seed=0,threshold__hours=16,include_treatment=False,al
     auroc.append(roc_auc_score(y_test,y_score[:,1]))
     auprc.append(average_precision_score(y_test,y_score[:,1]))
 
-  odds=pd.concat(odds,axis=1).T.rename(columns={
-      "Gender_1.0":"Gender__Male",
-      "Pronation_True":"Pronation",
-      "Bicarbonate Moles/volume in Blood":"Bicarbonate",
-      "Lactate Moles/volume in Blood":"Lactate",
-      "Carbon dioxide/Gas.total.at end expiration in Exhaled gas":"etCO2",
-      "Oxygen saturation in Arterial blood by Pulse oximetry":"SpO2",
-      "Oxygen saturation Pure mass fraction in Blood":"PO2"})
-
-  if not all_features:
-    features_of_interest=["Gender__Male","Bicarbonate","bmi","weight","Lactate","apache","SpO2","PO2"]
-    if include_treatment:
-      features_of_interest+=["Pronation"]
-    odds=odds[features_of_interest]
+  odds=pd.concat(odds,axis=1).T
 
   odds=odds[odds.mean().sort_values().index]
   return odds,pd.Series(auroc),pd.Series(auprc)
 
-def crossval_xlearner(df,outcome,treatment,confounders,categorical,n_splits=5,n_repeats=10,seed=0,name="tau"):
+def crossval_xlearner(model_f,df,outcome,treatment,confounders,categorical,n_splits=5,n_repeats=10,seed=0,name="tau",fillna=1e-6):
   from econml.metalearners import XLearner
   from sklearn.model_selection import RepeatedStratifiedKFold
   from tqdm import tqdm
 
-  df=df.copy().fillna(1e-6)
+  if fillna:
+    df=df.copy().fillna(fillna)
   cv=RepeatedStratifiedKFold(n_splits=n_splits,n_repeats=n_repeats,random_state=seed)
 
   learner=XLearner(
-      models=make_logistic_regression(confounders,categorical,seed=seed,decompose=True),
-      propensity_model=make_logistic_regression(confounders,categorical,seed=seed,decompose=True),
+      models=model_f(confounders,categorical),
+      propensity_model=model_f(confounders,categorical),
       allow_missing=True)
 
   pbar=tqdm(cv.split(X=df[confounders],y=df[treatment]))
@@ -156,34 +149,35 @@ def crossval_xlearner(df,outcome,treatment,confounders,categorical,n_splits=5,n_
   for fold,(train,test) in enumerate(pbar):
     df_train,df_test=df.iloc[train],df.iloc[test]
     fitted_learner=learner.fit(
-        df_train[outcome],
-        df_train[treatment],
-        X=df_train[confounders])
+        df_train[outcome].astype(int).values.ravel(),
+        df_train[treatment].astype(int).values.ravel(),
+        X=df_train[confounders].values)
 
     # We measure the effect of cate on patients that were not pronated
     # tau= E[Y_pronated - Y_supine]
     df_test=df_test.query("Pronation==False")
     tau.append(pd.DataFrame(
         fitted_learner.effect(
-            X=df_test[confounders]
+            X=df_test[confounders].values
             ),
         columns=[fold],
         index=df_test.index))
 
   return pd.concat(tau,axis=1).mean(axis=0).rename(name)
 
-def crossval_slearner(df,outcome,treatment,confounders,categorical,n_splits=5,n_repeats=10,seed=0,name="tau"):
+def crossval_slearner(model_f,df,outcome,treatment,confounders,categorical,n_splits=5,n_repeats=10,seed=0,name="tau",fillna=1e-6):
   # Naive Implementation of a CATE with no major causal assumption
   import numpy as np
   from econml.metalearners import SLearner
   from sklearn.model_selection import RepeatedStratifiedKFold
   from tqdm import tqdm
 
-  df=df.copy().fillna(1e-6)
+  if fillna:
+    df=df.copy().fillna(fillna)
   cv=RepeatedStratifiedKFold(n_splits=n_splits,n_repeats=n_repeats,random_state=seed)
 
   learner=SLearner(
-      overall_model=make_logistic_regression([*confounders,*treatment],[*categorical,*treatment],seed=seed,decompose=True),
+      overall_model=model_f([*confounders,*treatment],[*categorical,*treatment],seed=seed),
       allow_missing=True)
 
   pbar=tqdm(cv.split(X=df[[*confounders,*treatment]],y=df[treatment]))
@@ -192,18 +186,32 @@ def crossval_slearner(df,outcome,treatment,confounders,categorical,n_splits=5,n_
   for fold,(train,test) in enumerate(pbar):
     df_train,df_test=df.iloc[train],df.iloc[test]
     fitted_learner=learner.fit(
-        df_train[outcome],
-        df_train[treatment],
-        X=df_train[confounders])
+        df_train[outcome].astype(int).values.ravel(),
+        df_train[treatment].astype(int).values.ravel(),
+        X=df_train[confounders].values)
 
     # We measure the effect of cate on patients that were not pronated
     # tau= E[Y_pronated - Y_supine]
     df_test=df_test.query("Pronation==False")
     tau.append(pd.DataFrame(
         fitted_learner.effect(
-            X=df_test[confounders]
+            X=df_test[confounders].values
             ),
         columns=[fold],
         index=df_test.index))
 
   return pd.concat(tau,axis=1).mean(axis=0).rename(name)
+
+def emulate_at_different_thresholds(thresholds,model_f,df,*args,**kwargs):
+  output=[]
+  for threshold in thresholds:
+    filtered_df=filter_pronation(df,threshold)
+    filtered_df.Gender=filtered_df.Gender.replace({"Female":0,"Male":1})
+    xtau=crossval_xlearner(model_f,filtered_df,*args,**kwargs,name=f"x__{threshold}")
+    stau=crossval_slearner(model_f,filtered_df,*args,**kwargs,name=f"s__{threshold}")
+    output+=[xtau,stau]
+  
+  output=pd.concat(output,axis=1)
+  output.columns=pd.MultiIndex.from_tuples([col.split("__") for col in output.columns]).T
+  output=output.reset_index().rename(columns={"level_0":"learner","level_1":"threshold"})
+  return output

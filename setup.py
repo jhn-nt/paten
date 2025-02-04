@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="paten",
-    version="0.5",
+    version="0.5.4",
     packages=["paten"],
     include_package_data=True,
     install_requires=[
