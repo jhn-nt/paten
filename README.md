@@ -15,7 +15,7 @@ Important Note: The google account enabled to access the AmsterdamUMCdb must the
 Run:   
 `pip install "git+https://github.com/jhn-nt/paten.git"`
 
-Afterwards run:
+Afterwards run:  
 `python3 -m paten.install`
 
 ### Tutorial

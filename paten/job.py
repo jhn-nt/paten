@@ -102,7 +102,7 @@ if __name__=="__main__":
             cates.to_csv(SAVEDIR / f"checkpoint__{i}.csv",index=False)
             output.append(cates)
 
-            with open(SAVEDIR / "ps__{i}.pickle","wb") as file:
+            with open(SAVEDIR / f"ps__{i}.pickle","wb") as file:
                 pickle.dump({"py_x":py_x,"pa_x":pa_x},file)
 
         except Exception as e:

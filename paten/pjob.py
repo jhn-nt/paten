@@ -96,7 +96,7 @@ if __name__=="__main__":
                 n_splits=N_SPLITS,
                 seed=SEED)
 
-            with open(SAVEDIR / "ps__{i}.pickle","wb") as file:
+            with open(SAVEDIR / f"ps__{i}.pickle","wb") as file:
                 pickle.dump({"py_x":py_x,"pa_x":pa_x},file)
 
             cates["proxy"]=proxy_f.__name__
