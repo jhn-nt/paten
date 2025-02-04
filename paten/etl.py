@@ -358,7 +358,7 @@ def legacy_dataset(proxy_f):
     dataset=dataset.sort_values(by=["person_id","intubation"]).groupby("person_id").first().reset_index()
     return dataset
 
-def dataset(proxy_f):
+def dataset(proxy_f,granularity=["person_id"]):
     demographic_df=load_demographic()
     ventilation_df=load_cohort()
     ventilation_df=ventilation_df.reset_index().rename(columns={"index":"ventilation_id"})
@@ -375,6 +375,7 @@ def dataset(proxy_f):
     ards_df=df[df.ards].reset_index().groupby(["person_id","visit_occurrence_id"]).severe_ards.max().reset_index()
 
     pronation_df=proxy_f(pronation_initiaiton_df,pronation_observation_df)
+    pronation_df.intubation=pd.to_datetime(pronation_df.intubation)
     temp=average_covariates_df.merge(pronation_df,on=["person_id","visit_occurrence_id","intubation"],how="left")
     outcome_df["Death"]=True
 
@@ -393,7 +394,7 @@ def dataset(proxy_f):
     temp=temp.drop("concept_name",axis=1)
     dataset=temp.merge(ards_df,on=["person_id","visit_occurrence_id"],how="inner")
     dataset=dataset[dataset['Dynamic lung compliance']<40]
-    dataset=dataset.sort_values(by=["person_id","intubation"]).groupby("person_id").first().reset_index()
+    dataset=dataset.sort_values(by=["person_id","intubation"]).groupby(granularity).first().reset_index()
     dataset=dataset.rename(columns={"gender":"Gender","severe_ards":"Severe ARDS","unit":"Unit","los":"LOS"})
     return dataset
 
