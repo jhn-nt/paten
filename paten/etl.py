@@ -329,7 +329,7 @@ def intervention_proxy__duty_cycle(pronation_initiation_df: pd.DataFrame,
     
     res_df=res_df.rename(columns={'average_pronation_hours':"average_daily_pronation__hours"})
     res_df.average_daily_pronation__hours=np.where(res_df.average_daily_pronation__hours>0,res_df.average_daily_pronation__hours,np.nan)
-    return res_df.sort_values('intubation').reset_index()
+    return res_df.sort_values('intubation').reset_index().drop(['pronation_sessions', 'person_id_visit_occurrence_id'],axis=1)
 
 def legacy_dataset(proxy_f):
     demographic_df=load_demographic()
