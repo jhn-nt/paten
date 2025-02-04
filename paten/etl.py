@@ -2,6 +2,9 @@ from .utils import read_gbq, read_query, read_procedure
 import pandas as pd
 import numpy as np
 import gspread
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from tqdm import tqdm
 
 
 def load_cohort():
@@ -182,8 +185,145 @@ def intervention_proxy__capped_cumulative(pronation_initiaiton_df,pronation_obse
 
   return approx_intervention_df[["person_id","visit_occurrence_id","intubation","average_daily_pronation__hours"]]
 
-def intervention_proxy__duty_cycle(pronation_initiaiton_df,pronation_observation_df)->pd.DataFrame:
-    raise NotImplementedError
+def intervention_proxy__duty_cycle(pronation_initiation_df: pd.DataFrame,
+                                   pronation_observation_df: pd.DataFrame,
+                                   plot: bool = False) -> pd.DataFrame:
+    """
+    Compute pronation session metrics (number of sessions and average pronation hours) per patient-visit.
+    
+    A pronation session is defined as a contiguous period when a patient is in the 'Prone' position.
+    If a session lasts more than 24 hours, it is split into multiple sessions of 24 hours (with a possible remainder).
+    Only ventilation periods lasting at least 1 day are processed.
+    
+    Parameters
+    ----------
+    pronation_initiation_df : pd.DataFrame
+        DataFrame with pronation initiation events (currently unused).
+    pronation_observation_df : pd.DataFrame
+        DataFrame with pronation observation events. Expected columns:
+          'person_id', 'visit_occurrence_id', 'observation_datetime',
+          'value_as_string', 'intubation', 'extubation'.
+    plot : bool, optional
+        If True, generates a step plot of the patient’s position over the ventilation period.
+    
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame indexed by 'person_id_visit_occurrence_id' containing:
+          - person_id
+          - visit_occurrence_id
+          - intubation (datetime of intubation)
+          - pronation_sessions (number of pronation sessions, splitting sessions >24h)
+          - average_pronation_hours (average duration per session in hours)
+    """
+    usecols = ['person_id', 'visit_occurrence_id', 'observation_datetime',
+               'value_as_string', 'intubation', 'extubation']
+    date_cols = ['observation_datetime', 'intubation', 'extubation']
+    pron_obs = pronation_observation_df[usecols].copy()
+    pron_obs[date_cols] = pron_obs[date_cols].apply(pd.to_datetime, errors='coerce')
+    pron_obs = pron_obs.drop_duplicates(keep='first').reset_index(drop=True)
+    
+    # Standardize position names
+    pos_map = {
+        'Rugligging': 'Supine',
+        'Buikligging': 'Prone',
+        'Re-zijde': 'Right side',
+        'Li-zijde': 'Left side'
+    }
+    pron_obs['value_as_string'] = pron_obs['value_as_string'].map(pos_map)
+    pron_obs['person_id_visit_occurrence_id'] = (
+        pron_obs['person_id'].astype(str) + '_' + pron_obs['visit_occurrence_id'].astype(str)
+    )
+    
+    # Prepare results DataFrame
+    unique_ids = pron_obs['person_id_visit_occurrence_id'].unique()
+    res_df = pd.DataFrame(index=pd.Index(unique_ids, name='person_id_visit_occurrence_id'),
+                          columns=['person_id', 'visit_occurrence_id', 'intubation', 
+                                   'pronation_sessions', 'average_pronation_hours'])
+    res_df[['person_id', 'visit_occurrence_id', 'pronation_sessions']] = 0
+    res_df['average_pronation_hours'] = 0.0
+
+    pos_numeric_mapping = {'Supine': 0, 'Prone': 1, 'Left side': 2, 'Right side': 3}
+    
+    groups = pron_obs.groupby('person_id_visit_occurrence_id')
+    for pid, group_df in tqdm(groups, total=len(groups)):
+        group_df = group_df.sort_values('observation_datetime')\
+                           .drop_duplicates(subset='observation_datetime', keep='first')\
+                           .reset_index(drop=True)
+        res_df.loc[pid, 'person_id'] = group_df['person_id'].iloc[0]
+        res_df.loc[pid, 'visit_occurrence_id'] = group_df['visit_occurrence_id'].iloc[0]
+        res_df.loc[pid, 'intubation'] = group_df['intubation'].iloc[0]
+        
+        # Establish ventilation period boundaries (rounded to the hour)
+        start = group_df['intubation'].dt.floor('h').iloc[0]
+        end = group_df['extubation'].dt.ceil('h').iloc[-1]
+        if (end - start) < pd.Timedelta(days=1) or 'Prone' not in group_df['value_as_string'].unique():
+            continue
+        
+        # Create an hourly DataFrame over the ventilation period
+        hourly_index = pd.date_range(start, end, freq='h', name='observation_datetime')
+        hourly_df = pd.DataFrame(index=hourly_index)
+        group_df['observation_datetime'] = group_df['observation_datetime'].dt.round('h')
+        group_df = group_df.set_index('observation_datetime')
+        hourly_df = pd.merge(hourly_df, group_df, left_index=True, right_index=True, how='left')
+        hourly_df.ffill(inplace=True)
+        fill_cols = ['person_id', 'visit_occurrence_id', 'intubation', 
+                     'extubation', 'person_id_visit_occurrence_id']
+        hourly_df[fill_cols] = hourly_df[fill_cols].bfill()
+        hourly_df.reset_index(inplace=True)
+        
+        # Identify pronation periods and map positions to numeric values
+        hourly_df['is_prone'] = hourly_df['value_as_string'] == 'Prone'
+        hourly_df['position_session'] = (hourly_df['is_prone'] != hourly_df['is_prone'].shift()).cumsum()
+        hourly_df['pos_numeric'] = hourly_df['value_as_string'].map(pos_numeric_mapping)
+        
+        if plot:
+            # Compute start and end times for each prone session for shading
+            prone_sessions = hourly_df[hourly_df['is_prone']].groupby('position_session')
+            start_pron = prone_sessions['observation_datetime'].first().values
+            end_pron = (prone_sessions['observation_datetime'].last() + pd.Timedelta(hours=1)).values
+            
+            fig, ax = plt.subplots(figsize=(12, 6))
+            ax.step(hourly_df['observation_datetime'], hourly_df['pos_numeric'],
+                    where='post', linewidth=2, label='Patient Position')
+            for sp, ep in zip(start_pron, end_pron):
+                ax.axvline(sp, color='k', linewidth=1, linestyle='--')
+                ax.axvline(ep, color='k', linewidth=1, linestyle='--')
+                ax.axvspan(sp, ep, alpha=0.1, color='red', label='Pronation session')
+            # Remove duplicate labels in the legend
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            ax.legend(by_label.values(), by_label.keys())
+            
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Patient Position')
+            # Use the pos_numeric mapping for yticks
+            ax.set_yticks(list(pos_numeric_mapping.values()))
+            ax.set_yticklabels(list(pos_numeric_mapping.keys()))
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))
+            plt.xticks(rotation=45)
+            ax.grid(True, which='both', linestyle='--', alpha=0.5)
+            patient = group_df['person_id'].iloc[0]
+            visit = group_df['visit_occurrence_id'].iloc[0]
+            ax.set_title(f"Patient Position Over Ventilation Period (Patient {patient}, Visit {visit})")
+            plt.tight_layout()
+            plt.show()
+        
+        # Compute durations of each pronation session and split sessions >24 hours
+        prone_groups = hourly_df[hourly_df['is_prone']].groupby('position_session')
+        session_durations = []
+        for _, session in prone_groups:
+            duration = session.shape[0]
+            full_chunks = duration // 24
+            remainder = duration % 24
+            session_durations.extend([24] * full_chunks)
+            if remainder:
+                session_durations.append(remainder)
+        if session_durations:
+            res_df.loc[pid, 'pronation_sessions'] = len(session_durations)
+            res_df.loc[pid, 'average_pronation_hours'] = np.mean(session_durations)
+    
+    return res_df.sort_values('intubation').reset_index()
 
 def legacy_dataset(proxy_f):
     demographic_df=load_demographic()
