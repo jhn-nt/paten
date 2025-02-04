@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from tqdm import tqdm
 from pathlib import Path
+from joblib import Memory
 
+memory=Memory(TEMP / "cachedir",verbose=0)
 
 def load_cohort():
     return read_gbq(read_query("cohort"))
@@ -82,7 +84,6 @@ def load_confounders_legacy():
 def confounders():
     return pd.read_csv(Path(__file__).parent / "concepts.csv")
 
-
 def load_confounders():
     cohort_q=read_query("cohort")
     concepts_str=",".join(confounders().concept_id.apply(lambda x: f"{x}").to_list())
@@ -94,11 +95,13 @@ def load_confounders():
                values=["value_as_number"])
     return average_confounders_df.droplevel(0,1)
 
+@memory.cache
 def cohort_table_from_params(params_df:pd.DataFrame)->pd.DataFrame:
     """
     Returns a DataFrame where each row is a timestamp where at least one new value of pao2__mmhg, fio2__p and peep__cmh2o is updated.
     Each timestamp is measured between intubation and extubation for that given ICU admission.
     """
+
 
     params_df["measure"]=params_df.measurement_concept_id.astype(str).replace({
         '3024882':"fio2__p",
@@ -348,6 +351,7 @@ def legacy_dataset(proxy_f):
     dataset=dataset.sort_values(by=["person_id","intubation"]).groupby("person_id").first().reset_index()
     return dataset
 
+@memory.cache
 def dataset(proxy_f,granularity=["person_id"]):
     demographic_df=load_demographic()
     ventilation_df=load_cohort()

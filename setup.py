@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="paten",
-    version="0.5.5",
+    version="0.5.7",
     packages=["paten"],
     include_package_data=True,
     install_requires=[
@@ -12,5 +12,8 @@ setup(
         "tableone",
         "pandas-gbq",
         "gspread",
+        "tqdm",
+        "matplotlib",
+        "lightgbm"
     ]
 )

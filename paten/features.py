@@ -1,12 +1,18 @@
 import pickle
 from .utils import TEMP
+import pandas as pd
+from pathlib import Path
 
-#with open(TEMP / "clinical_variables.pickle","rb") as file:
-#    CLINICAL_VARIABLES=pickle.load(file)
+def collect_features():
+    try:
+        with open(TEMP / "features.pickle","rb") as file:
+            features=pickle.load(file)
+        return features
+    except:
+        raise ValueError("Run paten.etl.dataset at least once")
 
-#with open(TEMP / "features.pickle","rb") as file:
-#    FEATURES=pickle.load(file)
-
+FEATURES=collect_features()
+ANNOTATED_FEATURES=pd.read_csv(Path(__file__).parent / "concepts.csv").concept_name.to_list()
 DEMOGRAPHIC_VARIABLES=[
     "Age",
     "Gender",
@@ -37,7 +43,6 @@ PREFILTERED=[
  'Base excess in Blood by calculation',
  'Calcium Moles/volume in Serum or Plasma',
  'Oxygen/Inspired gas Respiratory system by O2 Analyzer --on ventilator',
- 'Central venous pressure (CVP)',
  'Carbon dioxide Partial pressure in Exhaled gas --at end expiration',
  'Oxygen Partial pressure in Blood',
  'Oxygen content in Blood',
@@ -52,7 +57,7 @@ PREFILTERED=[
  'Pulmonary artery Systolic blood pressure'
 ]
 
-CONFOUNDERS=list(set(PREFILTERED).difference([*INDEX,*CENSOR,*OUTCOME,*TREATMENT]))
+CONFOUNDERS=list(set(FEATURES).difference([*INDEX,*CENSOR,*OUTCOME,*TREATMENT]))
 CATEGORICAL=list(set(CONFOUNDERS).intersection(["Gender","Unit","Pneumonia","Pronation","Death"]))
 CONTINUOUS=list(set(CONFOUNDERS).difference(CATEGORICAL))
 
