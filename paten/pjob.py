@@ -9,6 +9,7 @@ import pandas as pd
 import pickle
 import warnings
 from tqdm import tqdm
+from joblib import Parallel, delayed
 
 
 
@@ -40,6 +41,7 @@ if __name__=="__main__":
     parser.add_argument("-r","--repeats",default=10)
     parser.add_argument("-s","--seed",default=0)
     parser.add_argument("-f","--folds",default=5)
+    parser.add_argument("-n","--njobs",default=-1)
     
     args=parser.parse_args()
 
@@ -48,13 +50,12 @@ if __name__=="__main__":
     N_REPEATS=int(args.repeats)
     N_SPLITS=int(args.folds)
     DATASETS=list(map(dataset,PROXIES))
+    NJOBS=args.njobs
 
     SAVEDIR.mkdir(exist_ok=True)
 
-    output=[]
-    pbar=tqdm(enumerate(product(MODELS,zip(PROXIES,DATASETS),FILTERS)))
-    for i,(model_f,(proxy_f,df),filter) in pbar:
-        pbar.set_description(f"proxy: {proxy_f.__name__}   model: {model_f.__name__} filter: {filter}")
+    def run(i,inputs):
+        model_f,(proxy_f,df),filter=inputs
         try:
             model_f_name=model_f.__name__
             model_f=partial(model_f,seed=SEED)
@@ -95,20 +96,21 @@ if __name__=="__main__":
                 n_splits=N_SPLITS,
                 seed=SEED)
 
+            with open(SAVEDIR / "ps__{i}.pickle","wb") as file:
+                pickle.dump({"py_x":py_x,"pa_x":pa_x},file)
+
             cates["proxy"]=proxy_f.__name__
             cates["model"]=model_f_name
             cates["filter"]=filter
             cates["checkpoint"]=i
             cates.to_csv(SAVEDIR / f"checkpoint__{i}.csv",index=False)
-            output.append(cates)
-
-            with open(SAVEDIR / "ps__{i}.pickle","wb") as file:
-                pickle.dump({"py_x":py_x,"pa_x":pa_x},file)
+            return cates
 
         except Exception as e:
             print(e)
 
-
+    pbar=enumerate(product(MODELS,zip(PROXIES,DATASETS),FILTERS))
+    output=Parallel(n_jobs=NJOBS)(delayed(run)(i,inputs) for (i,inputs) in pbar)
     pd.concat(output,axis=0).to_csv(SAVEDIR / "results.csv",index=False)
 
   

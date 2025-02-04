@@ -26,30 +26,33 @@ OUTCOME=["Death"]
 TREATMENT=["Pronation"]
 
 PREFILTERED=[
-    'Age',
-    'Gender',
-    'APACHE',
-    'BMI',
-    'Maximum Pressure Respiratory system airway opening --during inspiration on ventilator',
-    'Lactate Moles/volume in Blood',
-    'Oxygen gas flow Oxygen delivery system',
-    'duration_hours',
-    'Urine output',
-    'Platelets #/volume in Blood',
-    'Invasive Mean blood pressure',
-    'Pulmonary artery Systolic blood pressure',
-    'Base excess in Blood by calculation',
-    'Sodium Moles/volume in Blood',
-    'Creatinine Moles/volume in Serum or Plasma',
-    'Oxygen Partial pressure in Blood',
-    'Tidal volume inspired spontaneous+mechanical Measured --on ventilator',
-    'Oxygen/Total gas setting Volume Fraction Ventilator',
-    'Fractional oxyhemoglobin in Blood',
-    'Potassium Moles/volume in Blood',
-    'Airway pressure delta setting Ventilator'
+['Age',
+ 'Gender',
+ 'APACHE',
+ 'BMI',
+ 'Weight',
+ 'Mean airway pressure',
+ 'duration_hours',
+ 'Oxygen gas flow Oxygen delivery system',
+ 'Base excess in Blood by calculation',
+ 'Calcium Moles/volume in Serum or Plasma',
+ 'Oxygen/Inspired gas Respiratory system by O2 Analyzer --on ventilator',
+ 'Central venous pressure (CVP)',
+ 'Carbon dioxide Partial pressure in Exhaled gas --at end expiration',
+ 'Oxygen Partial pressure in Blood',
+ 'Oxygen content in Blood',
+ 'Maximum Pressure Respiratory system airway opening --during inspiration on ventilator',
+ 'Breath rate spontaneous and mechanical --on ventilator',
+ 'Urine output',
+ 'Phosphate Moles/volume in Serum or Plasma',
+ 'Fractional oxyhemoglobin in Blood',
+ 'Airway pressure delta setting Ventilator',
+ 'Lactate Moles/volume in Blood',
+ 'Sodium Moles/volume in Blood',
+ 'Pulmonary artery Systolic blood pressure']
 ]
 
-CONFOUNDERS=list(set(FEATURES).difference([*INDEX,*CENSOR,*OUTCOME,*TREATMENT]))
+CONFOUNDERS=list(set(PREFILTERED).difference([*INDEX,*CENSOR,*OUTCOME,*TREATMENT]))
 CATEGORICAL=list(set(CONFOUNDERS).intersection(["Gender","Unit","Pneumonia","Pronation","Death"]))
 CONTINUOUS=list(set(CONFOUNDERS).difference(CATEGORICAL))
 
