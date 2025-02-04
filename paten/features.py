@@ -1,11 +1,11 @@
 import pickle
 from .utils import TEMP
 
-with open(TEMP / "clinical_variables.pickle","rb") as file:
-    CLINICAL_VARIABLES=pickle.load(file)
+#with open(TEMP / "clinical_variables.pickle","rb") as file:
+#    CLINICAL_VARIABLES=pickle.load(file)
 
-with open(TEMP / "features.pickle","rb") as file:
-    FEATURES=pickle.load(file)
+#with open(TEMP / "features.pickle","rb") as file:
+#    FEATURES=pickle.load(file)
 
 DEMOGRAPHIC_VARIABLES=[
     "Age",
@@ -26,7 +26,7 @@ OUTCOME=["Death"]
 TREATMENT=["Pronation"]
 
 PREFILTERED=[
-['Age',
+ 'Age',
  'Gender',
  'APACHE',
  'BMI',
@@ -49,7 +49,7 @@ PREFILTERED=[
  'Airway pressure delta setting Ventilator',
  'Lactate Moles/volume in Blood',
  'Sodium Moles/volume in Blood',
- 'Pulmonary artery Systolic blood pressure']
+ 'Pulmonary artery Systolic blood pressure'
 ]
 
 CONFOUNDERS=list(set(PREFILTERED).difference([*INDEX,*CENSOR,*OUTCOME,*TREATMENT]))

@@ -6,6 +6,7 @@ import gspread
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from tqdm import tqdm
+from pathlib import Path
 
 
 def load_cohort():
@@ -79,29 +80,12 @@ def load_confounders_legacy():
     return average_confounders_df
 
 def confounders():
-    try:
-        gc = gspread.oauth()
-    except:
-        # when in colab
-        from google.colab import auth
-        from google.auth import default
-        auth.authenticate_user()
-        credentials,_=default()
-        gc=gspread.authorize(credentials)
+    return pd.read_csv(Path(__file__).parent / "concepts.csv")
 
-    worksheet=gc.open("Variables")
-    data=worksheet.get_worksheet(0).get_all_values()
-    headers=data.pop(0)
-    df=pd.DataFrame(data,columns=headers)
-    concepts=df[df["During IMV (X)"]=='x'][["concept_id","concept_name"]]
-
-    with open(TEMP / "clinical_variables.pickle","wb") as file:
-        pickle.dump(concepts["concept_name"].to_list(),file)
-    return concepts
 
 def load_confounders():
     cohort_q=read_query("cohort")
-    concepts_str=",".join(confounders().concept_id.to_list())
+    concepts_str=",".join(confounders().concept_id.apply(lambda x: f"{x}").to_list())
     confounders_q=read_procedure("confounders").format(cohort_q,concepts_str)
     confounders_df=read_gbq(confounders_q)
     average_confounders_df=pd.pivot_table(confounders_df,

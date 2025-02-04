@@ -1,0 +1,61 @@
+concept_id,concept_name
+3014315,Urine output
+3016166,Tidal volume inspired spontaneous+mechanical Measured --on ventilator
+42527120,Expired minute Volume during Mechanical ventilation
+3015016,Tidal volume expired spontaneous+mechanical Respiratory system airway --on ventilator
+42527121,Inspired minute Volume during Mechanical ventilation
+21490872,Heart rate.beat-to-beat by EKG
+21490852,Invasive Mean blood pressure
+21490580,Carbon dioxide production (VCO2) in Respiratory system
+3014080,Oxygen gas flow Oxygen delivery system
+3004921,Ventilation mode Ventilator
+3022875,Positive end expiratory pressure setting Ventilator
+3024882,Oxygen/Total gas setting [Volume Fraction] Ventilator
+3007646,Breath rate spontaneous and mechanical --on ventilator
+3016078,Maximum [Pressure] Respiratory system airway opening --during inspiration on ventilator
+42527086,Mean airway pressure
+21490855,PEEP Respiratory system --on ventilator
+3025408,Oxygen/Inspired gas Respiratory system by O2 Analyzer --on ventilator
+21490582,Dynamic lung compliance
+21490580,Carbon dioxide production (VCO2) in Respiratory system
+3024171,Respiratory rate
+3044904,Oxygen content in Blood
+3035357,Carbon dioxide [Partial pressure] in Exhaled gas --at end expiration
+3013290,Carbon dioxide [Partial pressure] in Blood
+3010421,pH of Blood
+3006576,Bicarbonate [Moles/volume] in Blood
+3012501,Base excess in Blood by calculation
+3027315,Oxygen [Partial pressure] in Blood
+42869608,Oxygen saturation [Pure mass fraction] in Blood
+3005456,Potassium [Moles/volume] in Blood
+3000285,Sodium [Moles/volume] in Blood
+42869588,Hematocrit [Pure volume fraction] of Blood by Automated count
+40762351,Hemoglobin [Moles/volume] in Blood
+21490675,Central venous pressure (CVP)
+3048816,Calcium.ionized [Moles/volume] adjusted to pH 7.4 in Blood
+3039000,Anion gap in Blood
+3007469,Breath rate setting Ventilator
+42527137,Airway pressure delta setting Ventilator
+36304672,Inspiratory time setting Ventilator
+3014646,Fractional oxyhemoglobin in Blood
+4108449,Ventilation cycle time
+4353947,Inspiratory time
+3018572,Chloride [Moles/volume] in Blood
+3032080,INR in Blood by Coagulation assay
+3019550,Sodium [Moles/volume] in Serum or Plasma
+3023103,Potassium [Moles/volume] in Serum or Plasma
+40762351,Hemoglobin [Moles/volume] in Blood
+3007461,Platelets [#/volume] in Blood
+3024561,Albumin [Mass/volume] in Serum or Plasma
+42869588,Hematocrit [Pure volume fraction] of Blood by Automated count
+21490586,Blood temperature
+3020564,Creatinine [Moles/volume] in Serum or Plasma
+3005606,Pulmonary artery Systolic blood pressure
+3028074,Pulmonary artery Mean blood pressure
+3017188,Pulmonary artery Diastolic blood pressure
+3010813,Leukocytes [#/volume] in Blood
+3047181,Lactate [Moles/volume] in Blood
+3014576,Chloride [Moles/volume] in Serum or Plasma
+3015377,Calcium [Moles/volume] in Serum or Plasma
+3003458,Phosphate [Moles/volume] in Serum or Plasma
+44782825,Airway plateau pressure
