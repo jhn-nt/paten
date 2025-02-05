@@ -31,31 +31,36 @@ CENSOR=["intubation","extubation","year_of_birth", "Severe ARDS","average_daily_
 OUTCOME=["Death"]
 TREATMENT=["Pronation"]
 
-XGB=[
- 'Age',
- 'Gender',
- 'APACHE',
- 'BMI',
- 'Weight',
- 'Mean airway pressure',
- 'duration_hours',
- 'Oxygen gas flow Oxygen delivery system',
- 'Base excess in Blood by calculation',
- 'Calcium Moles/volume in Serum or Plasma',
- 'Oxygen/Inspired gas Respiratory system by O2 Analyzer --on ventilator',
- 'Carbon dioxide Partial pressure in Exhaled gas --at end expiration',
- 'Oxygen Partial pressure in Blood',
- 'Oxygen content in Blood',
- 'Maximum Pressure Respiratory system airway opening --during inspiration on ventilator',
- 'Breath rate spontaneous and mechanical --on ventilator',
- 'Urine output',
- 'Phosphate Moles/volume in Serum or Plasma',
- 'Fractional oxyhemoglobin in Blood',
- 'Airway pressure delta setting Ventilator',
- 'Lactate Moles/volume in Blood',
- 'Sodium Moles/volume in Blood',
- 'Pulmonary artery Systolic blood pressure'
-]
+XGB=['Patient Age',
+'Patient Gender',
+'APACHE Score',
+'Patient BMI',
+'Patient Weight',
+'Mean Airway Pressure',
+'IMV Duration in Hours',
+'Calculated Blood Base Excess',
+'Serum/Plasma Calcium Concentration (Moles per Volume)',
+'Oxygen/Inspired Gas Measurement by O2 Analyzer (Ventilator)',
+'Serum/Plasma Sodium Concentration (Moles per Volume)',
+'Blood Lactate Concentration (Moles per Volume)',
+'Ventilator Breath Rate Setting',
+'Blood Oxygen Partial Pressure',
+'PEEP (Positive End-Expiratory Pressure) on Ventilator',
+'Ventilator Airway Pressure Delta Setting',
+'Beat-to-Beat Heart Rate (EKG)',
+'Blood Platelet Count (Number per Volume)',
+'Exhaled Carbon Dioxide Partial Pressure (End Expiration)',
+'Dynamic Lung Compliance',
+'Central Venous Pressure (CVP)',
+'Tidal Volume Inspired (Spontaneous and Mechanical, Ventilator)',
+'Blood pH',
+'Tidal Volume Expired (Spontaneous and Mechanical, Ventilator)',
+'Expired Minute Volume (Mechanical Ventilation)',
+'Urine Output',
+'Blood Hematocrit (Pure Volume Fraction, Automated Count)',
+'Patient Height',
+'Respiratory Carbon Dioxide Production (VCO2)',
+'Inspiratory Time']
 
 MAPPING={
 "Airway plateau pressure":"Airway Plateau Pressure",
@@ -128,7 +133,7 @@ MAPPING={
 REV_MAPPING={item:key for (key,item) in MAPPING.items()}
 PREFILTERED=[REV_MAPPING[feat] for feat in XGB]
 
-CONFOUNDERS=list(set(FEATURES).difference([*INDEX,*CENSOR,*OUTCOME,*TREATMENT]))
+CONFOUNDERS=list(set(PREFILTERED).difference([*INDEX,*CENSOR,*OUTCOME,*TREATMENT]))
 CATEGORICAL=list(set(CONFOUNDERS).intersection(["Gender","Unit","Pneumonia","Pronation","Death"]))
 CONTINUOUS=list(set(CONFOUNDERS).difference(CATEGORICAL))
 
