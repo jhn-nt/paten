@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.calibration import CalibratedClassifierCV
 from lightgbm import LGBMClassifier
 from tqdm import tqdm
 from .utils import filter_pronation
