@@ -213,5 +213,5 @@ def emulate_at_different_thresholds(thresholds,model_f,df,*args,**kwargs):
   
   output=pd.concat(output,axis=1)
   output.columns=pd.MultiIndex.from_tuples([col.split("__") for col in output.columns]).T
-  output=output.reset_index().rename(columns={"level_0":"learner","level_1":"threshold"})
+  output=output.stack().droplevel(0,0).reset_index().rename(columns={"index":"threshold"})
   return output

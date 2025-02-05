@@ -57,11 +57,11 @@ if __name__=="__main__":
     def run(i,inputs):
         model_f,(proxy_f,df),filter=inputs
         try:
+            if filter:
+                df=df[df[filter]].copy()
             model_f_name=model_f.__name__
             model_f=partial(model_f,seed=SEED)
             filtered_df=filter_pronation(df,16) # we store results from vanilla emulation
-            if filter:
-                filtered_df=filtered_df[filtered_df[filter]]
 
             py_x=propensity_score(
                 filtered_df,
@@ -99,6 +99,7 @@ if __name__=="__main__":
             with open(SAVEDIR / f"ps__{i}.pickle","wb") as file:
                 pickle.dump({"py_x":py_x,"pa_x":pa_x},file)
 
+
             cates["proxy"]=proxy_f.__name__
             cates["model"]=model_f_name
             cates["filter"]=filter
@@ -111,7 +112,7 @@ if __name__=="__main__":
 
     pbar=enumerate(product(MODELS,zip(PROXIES,DATASETS),FILTERS))
     output=Parallel(n_jobs=NJOBS)(delayed(run)(i,inputs) for (i,inputs) in pbar)
-    pd.concat(output,axis=0).to_csv(SAVEDIR / "results.csv",index=False)
+    pd.concat(output,axis=0).to_pickle(SAVEDIR / "results.pickle")
 
   
 

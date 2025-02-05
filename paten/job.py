@@ -56,11 +56,15 @@ if __name__=="__main__":
     for i,(model_f,(proxy_f,df),filter) in pbar:
         pbar.set_description(f"proxy: {proxy_f.__name__}   model: {model_f.__name__} filter: {filter}")
         try:
+            if filter:
+                df=df[df[filter]].copy()
+
             model_f_name=model_f.__name__
             model_f=partial(model_f,seed=SEED)
             filtered_df=filter_pronation(df,16) # we store results from vanilla emulation
-            if filter:
-                filtered_df=filtered_df[filtered_df[filter]]
+
+
+
 
             py_x=propensity_score(
                 filtered_df,
@@ -94,6 +98,7 @@ if __name__=="__main__":
                 n_repeats=N_REPEATS,
                 n_splits=N_SPLITS,
                 seed=SEED)
+            
 
             cates["proxy"]=proxy_f.__name__
             cates["model"]=model_f_name
@@ -109,7 +114,7 @@ if __name__=="__main__":
             print(e)
 
 
-    pd.concat(output,axis=0).to_csv(SAVEDIR / "results.csv",index=False)
+    pd.concat(output,axis=0).to_pickle(SAVEDIR / "results.pickle")
 
   
 
